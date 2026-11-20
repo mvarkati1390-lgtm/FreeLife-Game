@@ -16,17 +16,15 @@ jobs:
     steps:
       - name: Checkout FreeLife RP
         uses: actions/checkout@v4
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install Android NDK
-        run: sdkmanager "ndk;27.2.12479018"
+        run: sdkmanager --install "ndk;27.2.12479018"
       - name: Fetch AML Plugin SDK
         run: git clone --depth 1 https://github.com/AndroidModLoader/aml-psdk.git vendor/aml-psdk
       - name: Place FreeLife RP source in SDK example tree
         run: |
           mkdir -p vendor/aml-psdk/examples/game_sa/freelife_rp
           cp GTASA_RP_Mod/main.cpp GTASA_RP_Mod/Android.mk vendor/aml-psdk/examples/game_sa/freelife_rp/
-      - name: Build ARM32 and ARM64 plugins
+      - name: Build Android plugin
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: |
@@ -35,8 +33,7 @@ jobs:
             APP_BUILD_SCRIPT="$GITHUB_WORKSPACE/vendor/aml-psdk/examples/game_sa/freelife_rp/Android.mk" \
             NDK_APPLICATION_MK="$GITHUB_WORKSPACE/vendor/aml-psdk/Application.mk" \
             NDK_LIBS_OUT="$GITHUB_WORKSPACE/build/libs" \
-            NDK_OUT="$GITHUB_WORKSPACE/build/obj" \
-            NDK_DEBUG=0
+            NDK_OUT="$GITHUB_WORKSPACE/build/obj"
       - name: Upload mod libraries
         uses: actions/upload-artifact@v4
         with:
