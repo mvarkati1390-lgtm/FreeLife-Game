@@ -20,7 +20,7 @@ const JOBS := ["راننده تاکسی", "راننده اتوبوس", "رانن
 const JOB_TARGETS := [Vector3(82,0,-78), Vector3(-92,0,72), Vector3(105,0,96), Vector3(-100,0,-90), Vector3(0,0,-112), Vector3(112,0,-15), Vector3(-20,0,112)]
 const JOB_REWARDS := [750, 900, 1200, 650, 700, 800, 700]
 var game_minutes := 8 * 60
-var save_path := "user://arsacia_save.json"
+var save_path := "user://freelife_save.json"
 
 func _ready():
     _build_world()
@@ -66,6 +66,7 @@ func _box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, node_name :
 
 func _build_world():
     _box(self, Vector3(0,-0.6,0), Vector3(280,1,280), Color("#66875a"), "Grass")
+    _add_static_box(Vector3(0,-0.6,0), Vector3(280,1,280))
     # Main avenues and cross streets
     for road_index in range(-5,6):
         var offset = road_index * 24.0
@@ -87,6 +88,7 @@ func _build_world():
             var px := x*24.0 + rng.randf_range(-2,2)
             var pz := z*24.0 + rng.randf_range(-2,2)
             _box(self, Vector3(px,h/2,pz), Vector3(w,h,d), palette[rng.randi_range(0,palette.size()-1)], "Building")
+            _add_static_box(Vector3(px,h/2,pz), Vector3(w,h,d))
             _box(self, Vector3(px,h+0.35,pz), Vector3(w+0.3,0.7,d+0.3), Color("#5b5149"), "Roof")
             for wx in [-0.3,0.3]:
                 _box(self, Vector3(px+wx*w, h*0.55, pz-d/2-0.03), Vector3(1.3,1.4,0.08), Color("#577b8b"), "Window")
@@ -103,14 +105,25 @@ func _build_world():
     _add_location("ایستگاه اتوبوس", Vector3(-31,0,31), Color("#6595b0"))
     _add_location("خبرگزاری", Vector3(31,0,-31), Color("#a58cba"))
     _add_location("مدرسه", Vector3(31,0,31), Color("#86a77b"))
-    _add_location("مزرعه", Vector3(-31,0,-31), Color("#8ca85e"))
+    _add_location("مزرعه", Vector3(-96,0,-96), Color("#8ca85e"))
     _add_trees()
+
+func _add_static_box(pos: Vector3, size: Vector3):
+    var body := StaticBody3D.new()
+    body.position = pos
+    var shape := CollisionShape3D.new()
+    var box := BoxShape3D.new()
+    box.size = size
+    shape.shape = box
+    body.add_child(shape)
+    add_child(body)
 
 func _add_location(label_text: String, pos: Vector3, color: Color):
     var root := Node3D.new()
     root.position = pos
     add_child(root)
     _box(root, Vector3(0,1.8,0), Vector3(8,3.6,7), color, "Building")
+    _add_static_box(pos + Vector3(0,1.8,0), Vector3(8,3.6,7))
     _box(root, Vector3(0,3.9,0), Vector3(8.5,0.6,7.5), Color("#514a43"), "Roof")
     var label := Label3D.new()
     label.text = label_text
