@@ -20,6 +20,7 @@ const JOBS := ["راننده تاکسی", "راننده اتوبوس", "رانن
 const JOB_TARGETS := [Vector3(82,0,-78), Vector3(-92,0,72), Vector3(105,0,96), Vector3(-100,0,-90), Vector3(0,0,-112), Vector3(112,0,-15), Vector3(-20,0,112)]
 const JOB_REWARDS := [750, 900, 1200, 650, 700, 800, 700]
 var game_minutes := 8 * 60
+var clock_accumulator := 0.0
 var save_path := "user://freelife_save.json"
 
 func _ready():
@@ -31,7 +32,10 @@ func _ready():
     _refresh_hud()
 
 func _process(delta):
-    game_minutes = (game_minutes + int(delta * 2.0)) % (24 * 60)
+    clock_accumulator += delta
+    if clock_accumulator >= 1.0:
+        game_minutes = (game_minutes + 1) % (24 * 60)
+        clock_accumulator = 0.0
     if in_car and player and car_node:
         car_node.global_position = player.global_position + Vector3(0,-0.15,0)
         car_node.rotation.y = player.rotation.y
@@ -232,7 +236,8 @@ func _build_hud():
     _action_button(actions,"سوار / پیاده",_toggle_car)
     _action_button(actions,"شروع مأموریت",_start_mission)
     _action_button(actions,"خانه",_buy_or_visit_house)
-    _action_button(actions,"بانک",_bank_action)
+    _action_button(actions,"واریز بانک",_bank_action)
+    _action_button(actions,"برداشت بانک",_bank_withdraw_action)
     _action_button(actions,"فروشگاه",_shop_action)
     _action_button(actions,"ذخیره",_save_game)
 
@@ -293,16 +298,24 @@ func _bank_action():
     if player.global_position.distance_to(Vector3(0,0,-31)) > 14:
         message_label.text = "برای استفاده از بانک به ساختمان بانک نزدیک شو."
         return
-    if cash >= 250:
-        cash -= 250
-        bank_balance += 250
-        message_label.text = "۲۵۰ دلار به حساب بانکی واریز شد."
-    elif bank_balance >= 250:
-        bank_balance -= 250
-        cash += 250
-        message_label.text = "۲۵۰ دلار از حساب بانکی برداشت شد."
-    else:
-        message_label.text = "موجودی نقد و بانک برای تراکنش ۲۵۰ دلاری کافی نیست."
+    if cash < 250:
+        message_label.text = "برای واریز ۲۵۰ دلار پول نقد لازم داری."
+        return
+    cash -= 250
+    bank_balance += 250
+    message_label.text = "۲۵۰ دلار به حساب بانکی واریز شد."
+    _refresh_hud()
+
+func _bank_withdraw_action():
+    if player.global_position.distance_to(Vector3(0,0,-31)) > 14:
+        message_label.text = "برای استفاده از بانک به ساختمان بانک نزدیک شو."
+        return
+    if bank_balance < 250:
+        message_label.text = "موجودی بانک برای برداشت ۲۵۰ دلار کافی نیست."
+        return
+    bank_balance -= 250
+    cash += 250
+    message_label.text = "۲۵۰ دلار از حساب بانکی برداشت شد."
     _refresh_hud()
 
 func _shop_action():
