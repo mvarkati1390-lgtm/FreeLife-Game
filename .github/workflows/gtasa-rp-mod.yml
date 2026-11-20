@@ -16,8 +16,10 @@ jobs:
     steps:
       - name: Checkout FreeLife RP
         uses: actions/checkout@v4
-      - name: Install Android NDK
-        run: sdkmanager --install "ndk;27.2.12479018"
+      - name: Set up Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "ndk;27.2.12479018"
       - name: Fetch AML Plugin SDK
         run: git clone --depth 1 https://github.com/AndroidModLoader/aml-psdk.git vendor/aml-psdk
       - name: Place FreeLife RP source in SDK example tree
