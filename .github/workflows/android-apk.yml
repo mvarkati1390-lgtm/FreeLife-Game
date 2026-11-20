@@ -61,12 +61,12 @@ jobs:
           mkdir -p build
           ls -lh "$HOME/.local/share/godot/export_templates/4.3.stable/"
           test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
-          godot --headless --verbose --path . --export-debug "Android" build/ArSaCiA.apk
+          godot --headless --verbose --path . --export-debug "Android" build/FreeLifeRP.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ArSaCiA-Android-APK
+          name: FreeLife-RP-Android
           path: build/ArSaCiA.apk
           if-no-files-found: error
           retention-days: 14
