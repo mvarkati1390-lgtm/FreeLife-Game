@@ -5,6 +5,8 @@ var player: CharacterBody3D
 var hud: CanvasLayer
 var message_label: Label
 var cash := 5000
+var bank_balance := 0
+var snacks := 0
 var current_job := "بیکار"
 var car_node: Node3D
 var in_car := false
@@ -91,6 +93,7 @@ func _build_world():
     _add_location("شهرداری و کاریابی", Vector3(-31,0,0), Color("#d9b85f"))
     _add_location("تعمیرگاه", Vector3(31,0,0), Color("#d18a54"))
     _add_location("بانک", Vector3(0,0,-31), Color("#e5d48d"))
+    _add_location("فروشگاه", Vector3(-31,0,-31), Color("#8ab7a0"))
     _add_location("خانه فروشی", Vector3(0,0,31), Color("#b99ad5"))
     _add_location("مرکز شهر - Los Santos", Vector3(0,0,0), Color("#5c9c9b"))
     _add_location("منطقه ساحلی", Vector3(-96,0,0), Color("#6b9da5"))
@@ -185,7 +188,7 @@ func _build_hud():
     var vb := VBoxContainer.new()
     panel.add_child(vb)
     var title := Label.new()
-    title.text = "ArSaCiA RolePlay | شهر آفلاین"
+    title.text = "FreeLife RP | شهر آفلاین"
     vb.add_child(title)
     message_label = Label.new()
     message_label.text = "به شهر خوش آمدی؛ از کاریابی شغل بگیر."
@@ -216,6 +219,8 @@ func _build_hud():
     _action_button(actions,"سوار / پیاده",_toggle_car)
     _action_button(actions,"شروع مأموریت",_start_mission)
     _action_button(actions,"خانه",_buy_or_visit_house)
+    _action_button(actions,"بانک",_bank_action)
+    _action_button(actions,"فروشگاه",_shop_action)
     _action_button(actions,"ذخیره",_save_game)
 
 func _action_button(parent: VBoxContainer, text_value: String, callback: Callable):
@@ -229,7 +234,7 @@ func _refresh_hud():
     if not hud: return
     var label = hud.find_child("CashLabel", true, false)
     if label:
-        label.text = "پول: $%s | شغل: %s | خانه: %s" % [cash, current_job, "خریده‌شده" if house_owned else "نداری"]
+        label.text = "نقد: $%s | بانک: $%s | خوراکی: %s | شغل: %s | خانه: %s" % [cash, bank_balance, snacks, current_job, "خریده‌شده" if house_owned else "نداری"]
 
 func _interact():
     var nearest_name := ""
@@ -243,8 +248,7 @@ func _interact():
     if nearest_dist > 14:
         message_label.text = "برای تعامل به یکی از ساختمان‌های علامت‌دار نزدیک شو."
     elif nearest_name == "بانک":
-        cash += 250
-        message_label.text = "واریز آزمایشی انجام شد؛ ۲۵۰ دلار پاداش."
+        _bank_action()
     elif nearest_name == "شهرداری و کاریابی":
         job_index = (job_index + 1) % JOBS.size()
         current_job = JOBS[job_index]
@@ -264,10 +268,40 @@ func _interact():
     elif nearest_name == "تعمیرگاه":
         cash = max(0, cash - 100)
         message_label.text = "ماشین سرویس شد؛ ۱۰۰ دلار هزینه."
+    elif nearest_name == "فروشگاه":
+        _shop_action()
     elif nearest_name == "خانه فروشی":
         _buy_or_visit_house()
     else:
         message_label.text = "به مرکز شهر رسیدی."
+    _refresh_hud()
+
+func _bank_action():
+    if player.global_position.distance_to(Vector3(0,0,-31)) > 14:
+        message_label.text = "برای استفاده از بانک به ساختمان بانک نزدیک شو."
+        return
+    if cash >= 250:
+        cash -= 250
+        bank_balance += 250
+        message_label.text = "۲۵۰ دلار به حساب بانکی واریز شد."
+    elif bank_balance >= 250:
+        bank_balance -= 250
+        cash += 250
+        message_label.text = "۲۵۰ دلار از حساب بانکی برداشت شد."
+    else:
+        message_label.text = "موجودی نقد و بانک برای تراکنش ۲۵۰ دلاری کافی نیست."
+    _refresh_hud()
+
+func _shop_action():
+    if player.global_position.distance_to(Vector3(-31,0,-31)) > 14:
+        message_label.text = "برای خرید به فروشگاه نزدیک شو."
+        return
+    if cash < 50:
+        message_label.text = "برای خرید خوراکی ۵۰ دلار لازم داری."
+        return
+    cash -= 50
+    snacks += 1
+    message_label.text = "یک خوراکی خریدی. تعداد خوراکی‌ها: %s" % snacks
     _refresh_hud()
 
 func _toggle_car():
@@ -312,7 +346,7 @@ func _buy_or_visit_house():
     _refresh_hud()
 
 func _save_game():
-    var data = {"cash":cash,"job":current_job,"job_index":job_index,"house_owned":house_owned,"player":[player.position.x,player.position.y,player.position.z]}
+    var data = {"cash":cash,"bank_balance":bank_balance,"snacks":snacks,"job":current_job,"job_index":job_index,"house_owned":house_owned,"player":[player.position.x,player.position.y,player.position.z]}
     var f = FileAccess.open(save_path, FileAccess.WRITE)
     if f:
         f.store_string(JSON.stringify(data))
@@ -327,6 +361,8 @@ func _load_game():
     var parsed = JSON.parse_string(f.get_as_text())
     if typeof(parsed) == TYPE_DICTIONARY:
         cash = int(parsed.get("cash",cash))
+        bank_balance = int(parsed.get("bank_balance",bank_balance))
+        snacks = int(parsed.get("snacks",snacks))
         current_job = str(parsed.get("job",current_job))
         job_index = int(parsed.get("job_index", max(0, JOBS.find(current_job))))
         house_owned = bool(parsed.get("house_owned",false))
