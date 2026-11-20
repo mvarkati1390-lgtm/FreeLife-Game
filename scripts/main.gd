@@ -36,9 +36,6 @@ func _process(delta):
     if clock_accumulator >= 1.0:
         game_minutes = (game_minutes + 1) % (24 * 60)
         clock_accumulator = 0.0
-    if in_car and player and car_node:
-        car_node.global_position = player.global_position + Vector3(0,-0.15,0)
-        car_node.rotation.y = player.rotation.y
     if mission_active and player:
         var actor_pos = player.global_position
         if actor_pos.distance_to(mission_target) < 8.0:
@@ -229,24 +226,54 @@ func _build_player():
     player.add_child(cam)
 
 func _build_car():
-    car_node = Node3D.new()
-    car_node.name = "PlayerCar"
-    car_node.position = Vector3(7,0.8,5)
-    add_child(car_node)
-    _box(car_node,Vector3(0,0.5,0),Vector3(4.2,1.0,2.0),Color("#b64b3e"),"CarBody")
-    _box(car_node,Vector3(-0.2,1.25,0),Vector3(2.2,0.8,1.7),Color("#8faeb9"),"CarCabin")
-    for x in [-1.3,1.3]:
-        for z in [-1.05,1.05]:
-            var wheel := MeshInstance3D.new()
-            var cyl := CylinderMesh.new()
-            cyl.top_radius = 0.42
-            cyl.bottom_radius = 0.42
-            cyl.height = 0.25
-            wheel.mesh = cyl
-            wheel.rotation_degrees.z = 90
-            wheel.position = Vector3(x,0.25,z)
-            wheel.material_override = _mat(Color("#202326"))
-            car_node.add_child(wheel)
+    var vehicle := VehicleBody3D.new()
+    vehicle.name = "PlayerCar"
+    vehicle.position = Vector3(7,0.75,5)
+    vehicle.mass = 1000.0
+    vehicle.linear_damp = 0.18
+    vehicle.angular_damp = 2.5
+    car_node = vehicle
+    add_child(vehicle)
+
+    var body_shape := CollisionShape3D.new()
+    var body_box := BoxShape3D.new()
+    body_box.size = Vector3(2.0,0.75,4.0)
+    body_shape.shape = body_box
+    body_shape.position = Vector3(0,0.55,0)
+    vehicle.add_child(body_shape)
+
+    _box(vehicle,Vector3(0,0.55,0),Vector3(2.0,0.75,4.0),Color("#b64b3e"),"CarBody")
+    _box(vehicle,Vector3(0,1.12,-0.15),Vector3(1.72,0.78,2.0),Color("#8faeb9"),"CarCabin")
+    _box(vehicle,Vector3(0,1.55,1.25),Vector3(1.45,0.12,0.12),Color("#f3e7b0"),"FrontBumper")
+    for x in [-0.68,0.68]:
+        _box(vehicle,Vector3(x,0.62,2.02),Vector3(0.42,0.22,0.08),Color("#f5e8bd"),"Headlight")
+        _box(vehicle,Vector3(x,0.62,-2.02),Vector3(0.42,0.22,0.08),Color("#a73530"),"TailLight")
+
+    for x in [-0.92,0.92]:
+        for z in [-1.28,1.28]:
+            var wheel := VehicleWheel3D.new()
+            wheel.name = "Wheel_%s_%s" % [str(x),str(z)]
+            wheel.position = Vector3(x,-0.12,z)
+            wheel.wheel_radius = 0.36
+            wheel.wheel_rest_length = 0.15
+            wheel.suspension_travel = 0.18
+            wheel.suspension_stiffness = 28.0
+            wheel.damping_compression = 0.8
+            wheel.damping_relaxation = 0.9
+            wheel.wheel_friction_slip = 2.2
+            wheel.wheel_roll_influence = 0.08
+            wheel.use_as_steering = z > 0.0
+            wheel.use_as_traction = z < 0.0
+            vehicle.add_child(wheel)
+            var tire := MeshInstance3D.new()
+            var tire_mesh := CylinderMesh.new()
+            tire_mesh.top_radius = 0.36
+            tire_mesh.bottom_radius = 0.36
+            tire_mesh.height = 0.22
+            tire.mesh = tire_mesh
+            tire.rotation_degrees.z = 90
+            tire.material_override = _mat(Color("#202326"))
+            wheel.add_child(tire)
 
 func _build_hud():
     hud = CanvasLayer.new()
@@ -384,12 +411,22 @@ func _shop_action():
     _refresh_hud()
 
 func _toggle_car():
+    if in_car:
+        in_car = false
+        player.global_position = car_node.global_position + car_node.global_basis.x * 2.2 + Vector3(0,1.0,0)
+        player.rotation.y = car_node.rotation.y
+        player.set_physics_process(true)
+        var player_visual = player.get_node_or_null("PlayerVisual")
+        if player_visual: player_visual.visible = true
+        message_label.text = "از ماشین پیاده شدی."
+        return
     if player.global_position.distance_to(car_node.global_position) < 9:
-        in_car = !in_car
+        in_car = true
+        player.velocity = Vector3.ZERO
+        player.set_physics_process(false)
         var visual = player.get_node_or_null("PlayerVisual")
-        if visual: visual.visible = not in_car
-        player.set("speed", 15.0 if in_car else 7.0)
-        message_label.text = "سوار ماشین شدی؛ با دکمه‌های جهت حرکت کن." if in_car else "از ماشین پیاده شدی."
+        if visual: visual.visible = false
+        message_label.text = "سوار ماشین شدی؛ بالا گاز، پایین دنده عقب، چپ و راست فرمان."
     else:
         message_label.text = "برای سوار شدن به ماشین قرمز نزدیک شو."
 
@@ -450,8 +487,24 @@ func _load_game():
             player.position = Vector3(float(p[0]),float(p[1]),float(p[2]))
 
 func _physics_process(_delta):
-    if player:
-        player.set("vehicle_mode", in_car)
+    if not player or not car_node:
+        return
+    player.set("vehicle_mode", in_car)
+    var vehicle := car_node as VehicleBody3D
+    if in_car:
+        var held: Dictionary = player.get("held")
+        var throttle := 1.0 if held.get("up", false) else 0.0
+        var reverse := 1.0 if held.get("down", false) else 0.0
+        var turn := (1.0 if held.get("right", false) else 0.0) - (1.0 if held.get("left", false) else 0.0)
+        vehicle.engine_force = throttle * 2400.0 - reverse * 1100.0
+        vehicle.steering = -turn * 0.48
+        vehicle.brake = 0.0 if throttle > 0.0 or reverse > 0.0 else 5.0
+        player.global_position = vehicle.global_position + Vector3(0,1.0,0)
+        player.global_rotation.y = vehicle.global_rotation.y
+    else:
+        vehicle.engine_force = 0.0
+        vehicle.steering = 0.0
+        vehicle.brake = 8.0
 
 
 func _add_city_details():
