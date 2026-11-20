@@ -28,7 +28,6 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmdline-tools;latest" "ndk;23.2.8568313"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
 
@@ -41,8 +40,13 @@ jobs:
           mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable" "$HOME/.config/godot"
           unzip -q Godot_v4.3-stable_export_templates.tpz -d /tmp/godot-templates
           cp -a /tmp/godot-templates/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
-          echo "export/android/android_sdk_path = \"$ANDROID_HOME\"" >> "$HOME/.config/godot/editor_settings-4.tres"
-          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$HOME/.config/godot/editor_settings-4.tres"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
 
       - name: Verify project
         run: godot --headless --editor --path . --quit
