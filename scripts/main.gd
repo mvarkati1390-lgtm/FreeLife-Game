@@ -112,6 +112,7 @@ func _build_world():
     _add_location("مزرعه", Vector3(-96,0,-96), Color("#8ca85e"))
     _add_trees()
     _add_city_life()
+    _add_city_details()
 
 func _add_static_box(pos: Vector3, size: Vector3):
     var body := StaticBody3D.new()
@@ -451,3 +452,44 @@ func _load_game():
 func _physics_process(_delta):
     if player:
         player.set("vehicle_mode", in_car)
+
+
+func _add_city_details():
+    # Street lamps along the main avenues
+    for p in [Vector3(-12,0,-55),Vector3(12,0,-55),Vector3(-55,0,12),Vector3(-55,0,-12),Vector3(55,0,12),Vector3(55,0,-12),Vector3(-12,0,55),Vector3(12,0,55)]:
+        _box(self, p + Vector3(0,3.1,0), Vector3(0.22,6.2,0.22), Color("#34383b"), "StreetLampPole")
+        _box(self, p + Vector3(0.65,6.1,0), Vector3(1.5,0.16,0.22), Color("#34383b"), "StreetLampArm")
+        var bulb := OmniLight3D.new()
+        bulb.position = p + Vector3(1.25,5.9,0)
+        bulb.light_color = Color("#ffe4a1")
+        bulb.light_energy = 0.45
+        bulb.omni_range = 9.0
+        add_child(bulb)
+        _box(self, p + Vector3(1.25,5.9,0), Vector3(0.45,0.18,0.45), Color("#fff0bd"), "LampBulb")
+    # Crosswalks near the central intersection
+    for i in range(7):
+        _box(self, Vector3(-7.5 + i*2.5,0.12,-8.2), Vector3(1.25,0.035,3.8), Color("#e8e6dc"), "CrosswalkMark")
+        _box(self, Vector3(8.2,0.12,-7.5 + i*2.5), Vector3(3.8,0.035,1.25), Color("#e8e6dc"), "CrosswalkMark")
+    # Benches around the town center
+    for p in [Vector3(-17,0,8),Vector3(17,0,8),Vector3(-17,0,-8),Vector3(17,0,-8)]:
+        _box(self, p + Vector3(0,0.55,0), Vector3(2.8,0.18,0.9), Color("#815b3e"), "BenchSeat")
+        _box(self, p + Vector3(0,1.05,-0.35), Vector3(2.8,0.9,0.16), Color("#815b3e"), "BenchBack")
+        for x in [-1.05,1.05]:
+            _box(self, p + Vector3(x,0.25,0), Vector3(0.16,0.5,0.7), Color("#42484b"), "BenchLeg")
+    # Palm trees for a warmer coastal-city look
+    for p in [Vector3(-75,0,-20),Vector3(-75,0,20),Vector3(75,0,-20),Vector3(75,0,20),Vector3(-20,0,75),Vector3(20,0,75)]:
+        _box(self, p + Vector3(0,2.5,0), Vector3(0.55,5,0.55), Color("#8b6542"), "PalmTrunk")
+        for i in range(6):
+            var angle := TAU * float(i) / 6.0
+            var leaf := _box(self, p + Vector3(cos(angle)*1.55,5.0,sin(angle)*1.55), Vector3(3.2,0.16,0.48), Color("#39734b"), "PalmLeaf")
+            leaf.rotation.y = -angle
+    # Road signs and bus-stop shelter
+    for p in [Vector3(-35,0,4),Vector3(35,0,-4),Vector3(4,0,35)]:
+        _box(self, p + Vector3(0,1.8,0), Vector3(0.16,3.6,0.16), Color("#555b60"), "SignPost")
+        _box(self, p + Vector3(0,3.35,0), Vector3(2.4,1.0,0.16), Color("#397c9c"), "RoadSign")
+    var shelter_pos := Vector3(-31,0,38)
+    _box(self, shelter_pos + Vector3(0,1.5,0), Vector3(6.5,0.16,2.4), Color("#65747b"), "BusShelterRoof")
+    for x in [-3.0,3.0]:
+        for z in [-1.0,1.0]:
+            _box(self, shelter_pos + Vector3(x,0.75,z), Vector3(0.14,1.5,0.14), Color("#59666c"), "BusShelterPost")
+    _box(self, shelter_pos + Vector3(0,0.6,0.8), Vector3(3.8,0.18,0.7), Color("#815b3e"), "BusShelterBench")
