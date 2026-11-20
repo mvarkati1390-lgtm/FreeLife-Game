@@ -90,7 +90,7 @@ public class FreeLifeBootstrap : MonoBehaviour
     void BuildPlayer()
     {
         player=GameObject.CreatePrimitive(PrimitiveType.Capsule); player.name="Player";
-        player.transform.position=PlayerPrefs.GetFloat("px",-3f)*Vector3.right + Vector3.up + PlayerPrefs.GetFloat("pz",0f)*Vector3.forward;
+        player.transform.position=PlayerPrefs.GetFloat("px",-3f)*Vector3.right + PlayerPrefs.GetFloat("pz",0f)*Vector3.forward;
         player.GetComponent<Renderer>().material=Mat(new Color(.1f,.45f,.85f));
         Destroy(player.GetComponent<Collider>());
         controller=player.AddComponent<CharacterController>();
