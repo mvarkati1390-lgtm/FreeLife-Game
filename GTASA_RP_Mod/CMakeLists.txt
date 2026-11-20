@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(FreeLifeRP_Core LANGUAGES CXX)
+add_executable(freelife_rp_core_test tests/rp_system_test.cpp)
+target_compile_features(freelife_rp_core_test PRIVATE cxx_std_17)
+enable_testing()
+add_test(NAME freelife_rp_core_test COMMAND freelife_rp_core_test)
