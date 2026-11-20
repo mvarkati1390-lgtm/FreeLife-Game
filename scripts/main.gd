@@ -12,6 +12,11 @@ var house_owned := false
 var mission_active := false
 var mission_marker: MeshInstance3D
 var mission_target := Vector3(82, 0, -78)
+var mission_reward := 750
+var job_index := 0
+const JOBS := ["راننده تاکسی", "راننده اتوبوس", "راننده کامیون", "کشاورز", "خبرنگار", "مکانیک", "معلم"]
+const JOB_TARGETS := [Vector3(82,0,-78), Vector3(-92,0,72), Vector3(105,0,96), Vector3(-100,0,-90), Vector3(0,0,-112), Vector3(112,0,-15), Vector3(-20,0,112)]
+const JOB_REWARDS := [750, 900, 1200, 650, 700, 800, 700]
 var game_minutes := 8 * 60
 var save_path := "user://arsacia_save.json"
 
@@ -32,9 +37,9 @@ func _process(delta):
         var actor_pos = player.global_position
         if actor_pos.distance_to(mission_target) < 8.0:
             mission_active = false
-            cash += 750
+            cash += mission_reward
             mission_marker.visible = false
-            message_label.text = "مأموریت با موفقیت انجام شد! ۷۵۰ دلار گرفتی."
+            message_label.text = "مأموریت %s انجام شد! %s دلار پاداش گرفتی." % [current_job, mission_reward]
             _refresh_hud()
     var clock = hud.find_child("ClockLabel", true, false) if hud else null
     if clock:
@@ -87,7 +92,15 @@ func _build_world():
     _add_location("تعمیرگاه", Vector3(31,0,0), Color("#d18a54"))
     _add_location("بانک", Vector3(0,0,-31), Color("#e5d48d"))
     _add_location("خانه فروشی", Vector3(0,0,31), Color("#b99ad5"))
-    _add_location("مرکز شهر", Vector3(0,0,0), Color("#5c9c9b"))
+    _add_location("مرکز شهر - Los Santos", Vector3(0,0,0), Color("#5c9c9b"))
+    _add_location("منطقه ساحلی", Vector3(-96,0,0), Color("#6b9da5"))
+    _add_location("منطقه صنعتی", Vector3(96,0,0), Color("#9b8068"))
+    _add_location("منطقه کوهستانی", Vector3(0,0,96), Color("#71865a"))
+    _add_location("منطقه تجاری", Vector3(0,0,-96), Color("#b7a06e"))
+    _add_location("ایستگاه اتوبوس", Vector3(-31,0,31), Color("#6595b0"))
+    _add_location("خبرگزاری", Vector3(31,0,-31), Color("#a58cba"))
+    _add_location("مدرسه", Vector3(31,0,31), Color("#86a77b"))
+    _add_location("مزرعه", Vector3(-31,0,-31), Color("#8ca85e"))
     _add_trees()
 
 func _add_location(label_text: String, pos: Vector3, color: Color):
@@ -233,8 +246,21 @@ func _interact():
         cash += 250
         message_label.text = "واریز آزمایشی انجام شد؛ ۲۵۰ دلار پاداش."
     elif nearest_name == "شهرداری و کاریابی":
-        current_job = "راننده تاکسی"
-        message_label.text = "شغل راننده تاکسی ثبت شد. مأموریت بگیر و به مقصد برو."
+        job_index = (job_index + 1) % JOBS.size()
+        current_job = JOBS[job_index]
+        message_label.text = "شغل جدید: %s. برای دریافت کار، شروع مأموریت را بزن." % current_job
+    elif nearest_name == "ایستگاه اتوبوس":
+        current_job = "راننده اتوبوس"
+        message_label.text = "شغل راننده اتوبوس انتخاب شد. مأموریت بگیر."
+    elif nearest_name == "خبرگزاری":
+        current_job = "خبرنگار"
+        message_label.text = "شغل خبرنگار انتخاب شد. مأموریت بگیر."
+    elif nearest_name == "مدرسه":
+        current_job = "معلم"
+        message_label.text = "شغل معلم انتخاب شد. مأموریت بگیر."
+    elif nearest_name == "مزرعه":
+        current_job = "کشاورز"
+        message_label.text = "شغل کشاورز انتخاب شد. مأموریت بگیر."
     elif nearest_name == "تعمیرگاه":
         cash = max(0, cash - 100)
         message_label.text = "ماشین سرویس شد؛ ۱۰۰ دلار هزینه."
@@ -262,8 +288,14 @@ func _start_mission():
         message_label.text = "مأموریت فعال است؛ به نشان زرد روی نقشه برو."
         return
     mission_active = true
+    var idx := JOBS.find(current_job)
+    if idx < 0: idx = 0
+    mission_target = JOB_TARGETS[idx]
+    mission_reward = JOB_REWARDS[idx]
+    if mission_marker and is_instance_valid(mission_marker):
+        mission_marker.queue_free()
     mission_marker = _box(self, mission_target + Vector3(0,1.2,0), Vector3(3,2.4,3), Color("#f2d23b"), "MissionDestination")
-    message_label.text = "مأموریت شروع شد؛ به نشان زرد برو. پاداش: ۷۵۰ دلار."
+    message_label.text = "مأموریت %s شروع شد؛ به نشان زرد برو. پاداش: %s دلار." % [current_job, mission_reward]
 
 func _buy_or_visit_house():
     if player.global_position.distance_to(Vector3(0,0,31)) > 18:
@@ -280,7 +312,7 @@ func _buy_or_visit_house():
     _refresh_hud()
 
 func _save_game():
-    var data = {"cash":cash,"job":current_job,"house_owned":house_owned,"player":[player.position.x,player.position.y,player.position.z]}
+    var data = {"cash":cash,"job":current_job,"job_index":job_index,"house_owned":house_owned,"player":[player.position.x,player.position.y,player.position.z]}
     var f = FileAccess.open(save_path, FileAccess.WRITE)
     if f:
         f.store_string(JSON.stringify(data))
@@ -296,6 +328,7 @@ func _load_game():
     if typeof(parsed) == TYPE_DICTIONARY:
         cash = int(parsed.get("cash",cash))
         current_job = str(parsed.get("job",current_job))
+        job_index = int(parsed.get("job_index", max(0, JOBS.find(current_job))))
         house_owned = bool(parsed.get("house_owned",false))
         var p = parsed.get("player",[])
         if p.size() == 3:
