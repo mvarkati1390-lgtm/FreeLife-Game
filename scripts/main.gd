@@ -111,6 +111,7 @@ func _build_world():
     _add_location("مدرسه", Vector3(31,0,31), Color("#86a77b"))
     _add_location("مزرعه", Vector3(-96,0,-96), Color("#8ca85e"))
     _add_trees()
+    _add_city_life()
 
 func _add_static_box(pos: Vector3, size: Vector3):
     var body := StaticBody3D.new()
@@ -136,6 +137,57 @@ func _add_location(label_text: String, pos: Vector3, color: Color):
     label.modulate = Color("#fff6d8")
     root.add_child(label)
     root.set_meta("place_name", label_text)
+
+func _add_city_life():
+    var car_spots = [
+        [Vector3(11,0.05,13), Color("#3f79a8")],
+        [Vector3(-12,0.05,13), Color("#c6a14b")],
+        [Vector3(11,0.05,-13), Color("#4e8a62")],
+        [Vector3(-12,0.05,-13), Color("#777b86")]
+    ]
+    for item in car_spots:
+        var parked := Node3D.new()
+        parked.position = item[0]
+        add_child(parked)
+        _box(parked, Vector3(0,0.65,0), Vector3(3.8,0.9,1.8), item[1], "ParkedCarBody")
+        _box(parked, Vector3(-0.15,1.25,0), Vector3(1.9,0.65,1.5), Color("#91aebc"), "ParkedCarCabin")
+        for wx in [-1.15,1.15]:
+            for wz in [-0.95,0.95]:
+                var tire := MeshInstance3D.new()
+                var tire_mesh := CylinderMesh.new()
+                tire_mesh.top_radius = 0.34
+                tire_mesh.bottom_radius = 0.34
+                tire_mesh.height = 0.22
+                tire.mesh = tire_mesh
+                tire.rotation_degrees.z = 90
+                tire.position = Vector3(wx,0.35,wz)
+                tire.material_override = _mat(Color("#202326"))
+                parked.add_child(tire)
+    var citizen_spots = [
+        Vector3(5,0,18), Vector3(-7,0,20), Vector3(18,0,-5),
+        Vector3(-18,0,-7), Vector3(38,0,18), Vector3(-38,0,-18)
+    ]
+    var shirts = [Color("#d0a46c"),Color("#527e9c"),Color("#9b6e91"),Color("#6e8a60"),Color("#b56e55"),Color("#777b86")]
+    for i in range(citizen_spots.size()):
+        var citizen := Node3D.new()
+        citizen.position = citizen_spots[i]
+        add_child(citizen)
+        var torso := MeshInstance3D.new()
+        var torso_mesh := CapsuleMesh.new()
+        torso_mesh.radius = 0.38
+        torso_mesh.height = 1.45
+        torso.mesh = torso_mesh
+        torso.position.y = 0.9
+        torso.material_override = _mat(shirts[i])
+        citizen.add_child(torso)
+        var head := MeshInstance3D.new()
+        var head_mesh := SphereMesh.new()
+        head_mesh.radius = 0.25
+        head_mesh.height = 0.5
+        head.mesh = head_mesh
+        head.position.y = 1.78
+        head.material_override = _mat(Color("#b98968"))
+        citizen.add_child(head)
 
 func _add_trees():
     for p in [Vector3(-48,0,-35),Vector3(48,0,35),Vector3(-50,0,45),Vector3(50,0,-45),Vector3(-34,0,55),Vector3(34,0,-55),Vector3(70,0,40),Vector3(-70,0,-40)]:
