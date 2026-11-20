@@ -1,0 +1,20 @@
+name: FreeLife RP core tests
+
+on:
+  push:
+    paths:
+      - 'GTASA_RP_Mod/**'
+      - '.github/workflows/gtasa-rp-core.yml'
+  workflow_dispatch:
+
+jobs:
+  test-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S GTASA_RP_Mod -B build
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
