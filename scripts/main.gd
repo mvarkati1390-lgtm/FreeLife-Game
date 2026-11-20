@@ -8,12 +8,37 @@ var cash := 5000
 var current_job := "بیکار"
 var car_node: Node3D
 var in_car := false
+var house_owned := false
+var mission_active := false
+var mission_marker: MeshInstance3D
+var mission_target := Vector3(82, 0, -78)
+var game_minutes := 8 * 60
+var save_path := "user://arsacia_save.json"
 
 func _ready():
     _build_world()
     _build_player()
     _build_car()
     _build_hud()
+    _load_game()
+    _refresh_hud()
+
+func _process(delta):
+    game_minutes = (game_minutes + int(delta * 2.0)) % (24 * 60)
+    if in_car and player and car_node:
+        car_node.global_position = player.global_position + Vector3(0,-0.15,0)
+        car_node.rotation.y = player.rotation.y
+    if mission_active and player:
+        var actor_pos = player.global_position
+        if actor_pos.distance_to(mission_target) < 8.0:
+            mission_active = false
+            cash += 750
+            mission_marker.visible = false
+            message_label.text = "مأموریت با موفقیت انجام شد! ۷۵۰ دلار گرفتی."
+            _refresh_hud()
+    var clock = hud.find_child("ClockLabel", true, false) if hud else null
+    if clock:
+        clock.text = "ساعت %02d:%02d" % [int(game_minutes / 60), game_minutes % 60]
 
 func _mat(color: Color, roughness := 1.0) -> StandardMaterial3D:
     var m := StandardMaterial3D.new()
@@ -33,15 +58,15 @@ func _box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, node_name :
     return mi
 
 func _build_world():
-    _box(self, Vector3(0,-0.6,0), Vector3(260,1,260), Color("#66875a"), "Grass")
-    _box(self, Vector3(0,-0.02,0), Vector3(260,0.12,18), Color("#343b40"), "MainRoad")
-    _box(self, Vector3(0,0.0,0), Vector3(18,0.13,260), Color("#343b40"), "CrossRoad")
-    for i in range(-120,121,16):
-        _box(self, Vector3(i,0.08,0), Vector3(7,0.025,0.22), Color("#e6d7a0"), "RoadMark")
-        _box(self, Vector3(0,0.08,i), Vector3(0.22,0.025,7), Color("#e6d7a0"), "RoadMark")
-    for side in [-1,1]:
-        _box(self, Vector3(0,0.03,side*11), Vector3(260,0.25,3), Color("#aaa99b"), "Sidewalk")
-        _box(self, Vector3(side*11,0.03,0), Vector3(3,0.25,260), Color("#aaa99b"), "Sidewalk")
+    _box(self, Vector3(0,-0.6,0), Vector3(280,1,280), Color("#66875a"), "Grass")
+    # Main avenues and cross streets
+    for road_index in range(-5,6):
+        var offset = road_index * 24.0
+        _box(self, Vector3(offset,0,0), Vector3(11,0.14,280), Color("#343b40"), "Street")
+        _box(self, Vector3(0,0,offset), Vector3(280,0.14,11), Color("#343b40"), "Street")
+        for mark in range(-6,7):
+            _box(self, Vector3(offset,0.09,mark*20), Vector3(0.18,0.025,4.5), Color("#e6d7a0"), "LaneMark")
+            _box(self, Vector3(mark*20,0.09,offset), Vector3(4.5,0.025,0.18), Color("#e6d7a0"), "LaneMark")
     var rng := RandomNumberGenerator.new()
     rng.seed = 1402
     var palette = [Color("#c7a47b"), Color("#d4c2a0"), Color("#9d9c86"), Color("#b77d63"), Color("#d0b77f")]
@@ -49,7 +74,7 @@ func _build_world():
         for z in range(-5,6):
             if abs(x) <= 1 or abs(z) <= 1:
                 continue
-            var h := rng.randf_range(5.0, 13.0)
+            var h := rng.randf_range(5.0, 16.0)
             var w := rng.randf_range(9.0, 15.0)
             var d := rng.randf_range(9.0, 15.0)
             var px := x*24.0 + rng.randf_range(-2,2)
@@ -58,10 +83,11 @@ func _build_world():
             _box(self, Vector3(px,h+0.35,pz), Vector3(w+0.3,0.7,d+0.3), Color("#5b5149"), "Roof")
             for wx in [-0.3,0.3]:
                 _box(self, Vector3(px+wx*w, h*0.55, pz-d/2-0.03), Vector3(1.3,1.4,0.08), Color("#577b8b"), "Window")
-    _add_location("شهرداری", Vector3(-31,0,0), Color("#d9b85f"))
+    _add_location("شهرداری و کاریابی", Vector3(-31,0,0), Color("#d9b85f"))
     _add_location("تعمیرگاه", Vector3(31,0,0), Color("#d18a54"))
     _add_location("بانک", Vector3(0,0,-31), Color("#e5d48d"))
-    _add_location("خانه", Vector3(0,0,31), Color("#b99ad5"))
+    _add_location("خانه فروشی", Vector3(0,0,31), Color("#b99ad5"))
+    _add_location("مرکز شهر", Vector3(0,0,0), Color("#5c9c9b"))
     _add_trees()
 
 func _add_location(label_text: String, pos: Vector3, color: Color):
@@ -73,13 +99,13 @@ func _add_location(label_text: String, pos: Vector3, color: Color):
     var label := Label3D.new()
     label.text = label_text
     label.position = Vector3(0,5.2,0)
-    label.font_size = 48
+    label.font_size = 40
     label.modulate = Color("#fff6d8")
     root.add_child(label)
     root.set_meta("place_name", label_text)
 
 func _add_trees():
-    for p in [Vector3(-48,0,-35),Vector3(48,0,35),Vector3(-50,0,45),Vector3(50,0,-45),Vector3(-34,0,55),Vector3(34,0,-55)]:
+    for p in [Vector3(-48,0,-35),Vector3(48,0,35),Vector3(-50,0,45),Vector3(50,0,-45),Vector3(-34,0,55),Vector3(34,0,-55),Vector3(70,0,40),Vector3(-70,0,-40)]:
         _box(self,p+Vector3(0,1.4,0),Vector3(0.8,2.8,0.8),Color("#73523a"),"TreeTrunk")
         var crown := MeshInstance3D.new()
         var sphere := SphereMesh.new()
@@ -97,6 +123,7 @@ func _build_player():
     add_child(player)
     player.position = Vector3(0,1,4)
     var body := MeshInstance3D.new()
+    body.name = "PlayerVisual"
     var capsule := CapsuleMesh.new()
     capsule.radius = 0.48
     capsule.height = 1.9
@@ -110,13 +137,14 @@ func _build_player():
     shape.shape = cs
     player.add_child(shape)
     var cam := Camera3D.new()
-    cam.position = Vector3(0,5.5,9)
-    cam.rotation_degrees = Vector3(-24,0,0)
+    cam.position = Vector3(0,6.5,11)
+    cam.rotation_degrees = Vector3(-25,0,0)
     cam.current = true
     player.add_child(cam)
 
 func _build_car():
     car_node = Node3D.new()
+    car_node.name = "PlayerCar"
     car_node.position = Vector3(7,0.8,5)
     add_child(car_node)
     _box(car_node,Vector3(0,0.5,0),Vector3(4.2,1.0,2.0),Color("#b64b3e"),"CarBody")
@@ -139,64 +167,56 @@ func _build_hud():
     add_child(hud)
     var panel := PanelContainer.new()
     panel.position = Vector2(14,14)
-    panel.custom_minimum_size = Vector2(250,90)
+    panel.custom_minimum_size = Vector2(280,118)
     hud.add_child(panel)
     var vb := VBoxContainer.new()
     panel.add_child(vb)
     var title := Label.new()
-    title.text = "ArSaCiA RolePlay | آفلاین"
+    title.text = "ArSaCiA RolePlay | شهر آفلاین"
     vb.add_child(title)
     message_label = Label.new()
-    message_label.text = "به شهرداری برو و شغل انتخاب کن."
+    message_label.text = "به شهر خوش آمدی؛ از کاریابی شغل بگیر."
     message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     vb.add_child(message_label)
     var cash_label := Label.new()
     cash_label.name = "CashLabel"
-    cash_label.text = "پول: $5,000  |  شغل: بیکار"
     vb.add_child(cash_label)
-    var buttons := HBoxContainer.new()
-    buttons.position = Vector2(14,620)
-    hud.add_child(buttons)
-    var directions = [["▲","up"],["◀","left"],["▼","down"],["▶","right"]]
+    var clock := Label.new()
+    clock.name = "ClockLabel"
+    vb.add_child(clock)
+    var directions := [["▲","up"],["◀","left"],["▼","down"],["▶","right"]]
+    var move_box := HBoxContainer.new()
+    move_box.position = Vector2(16,570)
+    hud.add_child(move_box)
     for pair in directions:
         var b := Button.new()
         b.text = pair[0]
-        b.custom_minimum_size = Vector2(64,64)
+        b.custom_minimum_size = Vector2(66,66)
         var direction: String = pair[1]
-        b.pressed.connect(func(): player.call("move_mobile", direction))
-        buttons.add_child(b)
+        b.button_down.connect(func(): player.call("set_mobile_direction", direction, true))
+        b.button_up.connect(func(): player.call("set_mobile_direction", direction, false))
+        move_box.add_child(b)
     var actions := VBoxContainer.new()
-    actions.position = Vector2(1040,570)
+    actions.position = Vector2(1040,450)
     hud.add_child(actions)
-    var interact := Button.new()
-    interact.text = "تعامل"
-    interact.custom_minimum_size = Vector2(150,55)
-    interact.pressed.connect(_interact)
-    actions.add_child(interact)
-    var car_btn := Button.new()
-    car_btn.text = "سوار / پیاده"
-    car_btn.custom_minimum_size = Vector2(150,55)
-    car_btn.pressed.connect(_toggle_car)
-    actions.add_child(car_btn)
-    var job_btn := Button.new()
-    job_btn.text = "شغل: راننده تاکسی"
-    job_btn.custom_minimum_size = Vector2(150,55)
-    job_btn.pressed.connect(func():
-        current_job = "راننده تاکسی"
-        _refresh_hud()
-        message_label.text = "شغل انتخاب شد؛ به ایستگاه برو."
-    )
-    actions.add_child(job_btn)
-    var save_btn := Button.new()
-    save_btn.text = "ذخیره"
-    save_btn.custom_minimum_size = Vector2(150,55)
-    save_btn.pressed.connect(_save_game)
-    actions.add_child(save_btn)
+    _action_button(actions,"تعامل",_interact)
+    _action_button(actions,"سوار / پیاده",_toggle_car)
+    _action_button(actions,"شروع مأموریت",_start_mission)
+    _action_button(actions,"خانه",_buy_or_visit_house)
+    _action_button(actions,"ذخیره",_save_game)
+
+func _action_button(parent: VBoxContainer, text_value: String, callback: Callable):
+    var b := Button.new()
+    b.text = text_value
+    b.custom_minimum_size = Vector2(190,54)
+    b.pressed.connect(callback)
+    parent.add_child(b)
 
 func _refresh_hud():
+    if not hud: return
     var label = hud.find_child("CashLabel", true, false)
     if label:
-        label.text = "پول: $%s  |  شغل: %s" % [cash, current_job]
+        label.text = "پول: $%s | شغل: %s | خانه: %s" % [cash, current_job, "خریده‌شده" if house_owned else "نداری"]
 
 func _interact():
     var nearest_name := ""
@@ -207,33 +227,80 @@ func _interact():
             if d < nearest_dist:
                 nearest_dist = d
                 nearest_name = str(n.get_meta("place_name"))
-    if nearest_dist > 12:
-        message_label.text = "به مکان موردنظر نزدیک‌تر شو."
+    if nearest_dist > 14:
+        message_label.text = "برای تعامل به یکی از ساختمان‌های علامت‌دار نزدیک شو."
     elif nearest_name == "بانک":
         cash += 250
-        message_label.text = "تراکنش آزمایشی بانک: ۲۵۰ دلار اضافه شد."
-    elif nearest_name == "شهرداری":
+        message_label.text = "واریز آزمایشی انجام شد؛ ۲۵۰ دلار پاداش."
+    elif nearest_name == "شهرداری و کاریابی":
         current_job = "راننده تاکسی"
-        message_label.text = "در شهرداری شغل راننده تاکسی را انتخاب کردی."
+        message_label.text = "شغل راننده تاکسی ثبت شد. مأموریت بگیر و به مقصد برو."
     elif nearest_name == "تعمیرگاه":
         cash = max(0, cash - 100)
-        message_label.text = "ماشین تعمیر شد؛ هزینه ۱۰۰ دلار."
-    elif nearest_name == "خانه":
-        message_label.text = "خانه فعلاً قابل بازدید است؛ خرید خانه در مرحله بعد."
+        message_label.text = "ماشین سرویس شد؛ ۱۰۰ دلار هزینه."
+    elif nearest_name == "خانه فروشی":
+        _buy_or_visit_house()
+    else:
+        message_label.text = "به مرکز شهر رسیدی."
     _refresh_hud()
 
 func _toggle_car():
-    if player.global_position.distance_to(car_node.global_position) < 8:
+    if player.global_position.distance_to(car_node.global_position) < 9:
         in_car = !in_car
-        message_label.text = "سوار ماشین شدی." if in_car else "از ماشین پیاده شدی."
+        var visual = player.get_node_or_null("PlayerVisual")
+        if visual: visual.visible = not in_car
+        player.set("speed", 15.0 if in_car else 7.0)
+        message_label.text = "سوار ماشین شدی؛ با دکمه‌های جهت حرکت کن." if in_car else "از ماشین پیاده شدی."
     else:
-        message_label.text = "به ماشین قرمز نزدیک شو."
+        message_label.text = "برای سوار شدن به ماشین قرمز نزدیک شو."
+
+func _start_mission():
+    if current_job == "بیکار":
+        message_label.text = "اول از شهرداری شغل بگیر."
+        return
+    if mission_active:
+        message_label.text = "مأموریت فعال است؛ به نشان زرد روی نقشه برو."
+        return
+    mission_active = true
+    mission_marker = _box(self, mission_target + Vector3(0,1.2,0), Vector3(3,2.4,3), Color("#f2d23b"), "MissionDestination")
+    message_label.text = "مأموریت شروع شد؛ به نشان زرد برو. پاداش: ۷۵۰ دلار."
+
+func _buy_or_visit_house():
+    if player.global_position.distance_to(Vector3(0,0,31)) > 18:
+        message_label.text = "برای خرید خانه به ساختمان خانه فروشی نزدیک شو."
+        return
+    if house_owned:
+        message_label.text = "به خانه خودت خوش آمدی."
+    elif cash >= 2000:
+        cash -= 2000
+        house_owned = true
+        message_label.text = "تبریک! خانه را به قیمت ۲۰۰۰ دلار خریدی."
+    else:
+        message_label.text = "برای خرید خانه ۲۰۰۰ دلار لازم داری."
+    _refresh_hud()
 
 func _save_game():
-    var f = FileAccess.open("user://savegame.json", FileAccess.WRITE)
-    f.store_string(JSON.stringify({"cash":cash,"job":current_job,"player":[player.position.x,player.position.y,player.position.z]}))
-    message_label.text = "بازی ذخیره شد."
+    var data = {"cash":cash,"job":current_job,"house_owned":house_owned,"player":[player.position.x,player.position.y,player.position.z]}
+    var f = FileAccess.open(save_path, FileAccess.WRITE)
+    if f:
+        f.store_string(JSON.stringify(data))
+        message_label.text = "بازی ذخیره شد."
+    else:
+        message_label.text = "ذخیره بازی ناموفق بود."
 
-func _process(_delta):
-    if in_car and player:
-        car_node.global_position = player.global_position + Vector3(0,-0.2,0)
+func _load_game():
+    if not FileAccess.file_exists(save_path): return
+    var f = FileAccess.open(save_path, FileAccess.READ)
+    if not f: return
+    var parsed = JSON.parse_string(f.get_as_text())
+    if typeof(parsed) == TYPE_DICTIONARY:
+        cash = int(parsed.get("cash",cash))
+        current_job = str(parsed.get("job",current_job))
+        house_owned = bool(parsed.get("house_owned",false))
+        var p = parsed.get("player",[])
+        if p.size() == 3:
+            player.position = Vector3(float(p[0]),float(p[1]),float(p[2]))
+
+func _physics_process(_delta):
+    if player:
+        player.set("vehicle_mode", in_car)
