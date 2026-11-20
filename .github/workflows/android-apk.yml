@@ -59,7 +59,9 @@ jobs:
       - name: Export debug APK
         run: |
           mkdir -p build
-          godot --headless --verbose --path . --install-android-build-template --export-debug "Android" build/ArSaCiA.apk
+          ls -lh "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          godot --headless --verbose --path . --export-debug "Android" build/ArSaCiA.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
